@@ -14,23 +14,31 @@ app = Flask(__name__)
 def whf_scrape():
 
     content = request.get_json()
+    print 'bite!'
 
     if content != {}:
         res = {}
-
-        keywords = get_keywords(content['url'])
-
-        # combs = create_combinations(keywords)
-        # for c in list(combs):
-        #     print c
-
+        
+        keywords = get_keywords(content['url'])    
+        unique_kws = create_unique_combinations(keywords)
+        
         # create TPB object
-        # t = TPB('https://thepiratebay.org')
+        tpb = TPB('https://thepiratebay.org')
+        
+        torrents = []
+        
+        for kw in unique_kws:
+            existing_magnets = [t['magnet'] for t in torrents]
+            new_torrents = find_torrents('{} {}'.format(kw[0], kw[1]), tpb)
+            
+            for t in new_torrents:
+                if t['magnet'] not in existing_magnets:
+                    torrents.append(t)
+            
+        torrents = sorted(torrents, key=lambda torrent: (torrent['seeders']))[-3:]
 
 
-
-
-        return jsonify(res)
+        return jsonify(torrents)
 
 
     return jsonify('Provide valid URL')
@@ -53,14 +61,14 @@ def get_keywords(url):
     flattened_kw = list(set([k.lower() for sublist in keywords for k in sublist if k.lower() not in ['and', 'with']]))
 
     # remove doubles
-	# TODO
+    flattened_kw = set(flattened_kw)
 
     return flattened_kw
 
 
 
-def create_combinations(kw_list):
-    return itertools.combinations(kw_list, 2)
+def create_unique_combinations(kw_list):
+    return set([tuple(i) for i in map(sorted, itertools.combinations(kw_list, 2))])
 
 
 
