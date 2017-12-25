@@ -1,47 +1,42 @@
-import os, sys, getopt, time
-from subprocess import Popen, PIPE
-import subprocess, urllib2, re
-import itertools
+import urllib2, re, itertools
 from bs4 import BeautifulSoup
-from constants import CATEGORIES, ORDERS
 from tpb import TPB
+from constants import CATEGORIES, ORDERS
 from flask import Flask, jsonify, request
-
+from flask_cors import CORS, cross_origin
+import logging
 
 app = Flask(__name__)
+CORS(app)
 
 @app.route('/', methods=['POST', 'OPTIONS'])
-def whf_scrape():
+@cross_origin()
+def scrape():
 
-    content = request.get_json()
-    print 'bite!'
+	content = request.get_json()
 
-    if content != {}:
-        res = {}
-        
-        keywords = get_keywords(content['url'])    
-        unique_kws = create_unique_combinations(keywords)
-        
-        # create TPB object
-        tpb = TPB('https://thepiratebay.org')
-        
-        torrents = []
-        
-        for kw in unique_kws:
-            existing_magnets = [t['magnet'] for t in torrents]
-            new_torrents = find_torrents('{} {}'.format(kw[0], kw[1]), tpb)
-            
-            for t in new_torrents:
-                if t['magnet'] not in existing_magnets:
-                    torrents.append(t)
-            
-        torrents = sorted(torrents, key=lambda torrent: (torrent['seeders']))[-3:]
+	if content != {}:
+		res = {}
+		
+		keywords = get_keywords(content['page_url'])    
+		unique_kws = create_unique_combinations(keywords)
+		
+		tpb, torrents = TPB('https://thepiratebay.org'), []
+		
+		for kw in unique_kws:
+			existing_magnets = [t['magnet'] for t in torrents]
+			new_torrents = find_torrents('{} {}'.format(kw[0], kw[1]), tpb)
+			
+			for t in new_torrents:
+				if t['magnet'] not in existing_magnets:
+					torrents.append(t)
+			
+		torrents = sorted(torrents, key=lambda torrent: (torrent['seeders']))[-3:]
 
 
-        return jsonify(torrents)
-
-
-    return jsonify('Provide valid URL')
+		return jsonify(torrents)
+		
+	return jsonify('Provide valid URL')
 
 
 
